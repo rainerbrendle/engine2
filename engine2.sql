@@ -1,3 +1,97 @@
+/* Database Schema for Energy Mmanagement Cloud
+ *
+ */
+
+/* 
+ * Basics 
+ */
+/* UUIDs */
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE SCHEMA IF NOT EXISTS nodes;
+CREATE SEQUENCE nodes.tsn;
+
+/* Table to manage nodes 
+ * 
+ * Table is fully replicated bewetween all nodes
+ * 
+ */
+CREATE TABLE nodes.systems (
+     nodeid     uuid,
+     url        text,
+     data       text,
+     clockid    bigint,
+     tsn        bigint,
+     primary key (url, data),
+     unique ( clockid, tsn )
+);
+
+CREATE OR REPLACE FUNCTION nodes.clockid() RETURNS bigint AS $$
+   BEGIN
+/* for the moment, we assume the clockid is 0 
+ *
+ * Generally speaking a clockid is unique to the clock, every tsn generator has to
+ * its globally unique id number. For every clock instance it is a constant.
+ */
+      RETURN 0;
+   END
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS UUID  AS $$
+   DECLARE
+      _uuid uuid;
+   BEGIN
+     _uuid := uuid_generate_v4();
+
+     insert into nodes.systems( nodeid, url, data, clockid, tsn  )
+     values ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
+
+     RETURN _uuid;
+   END
+$$ LANGUAGE plpgsql;
+
+
+CREATE TABLE nodes.highwatermarks (
+     nodeid     uuid  primary key,
+     clockid    bigint,
+     tsn        bigint,
+     unique ( clockid, tsn )
+)
+
+CREATE OR REPLACE FUNCTION nodes.getHighs() RETURNS TABLE( _nodeid uuid, _clockid bigint, _tsn bigint ) AS $$
+   BEGIN
+     RETURN QUERY
+        select nodeid, clockid, tsn from nodes.highwatermarks;
+   END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION nodes.putHigh( _nodeid uuid, _clockid bigint, _tsn bigint) RETURNS VOID AS $$
+   BEGIN
+       LOOP
+            UPDATE nodes.highwatermarks
+              SET tsn = _tsn, clockid = _clockid
+              where nodeid = _nodeid;
+        IF found THEN
+            RETURN;
+        END IF;
+        BEGIN
+            INSERT INTO nodes.highwatermarks( nodeid, clockid, tsn ) 
+            VALUES( _nodeid, _clockid, _tsn );
+            
+            EXCEPTION WHEN unique_violation THEN
+            -- Do nothing, and loop to try the UPDATE again.
+        END;   
+       END LOOP;
+   END
+$$ LANGUAGE plpgsql;
+
+
+
+/*
+ * OLD
+ */
+
 /*
  * First Schema setup for power data management
  * 
@@ -119,15 +213,21 @@ CREATE TABLE nodes.highwatermarks (
      hwm        bigint
 );
 
-CREATE TABLE nodes.systems (
-     nodeid     bigserial,
-     tsn        bigint,
-     url        text,
-     data       text,
-     primary key (url)
-);
 
-CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS UUID  AS $$
+   DECLARE 
+      _uuid uuid;
+   BEGIN
+     _uuid := uuid_generate_v4();
+
+     insert into nodes.systems( nodeid, tsn, url, data ) 
+     values ( _uuid, nextval( 'clock.tsn' ), _url, _data );
+
+     RETURN _uuid;
+   END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION nodes.update( _url text, _data text) RETURNS VOID AS $$
    DECLARE
        _tsn bigint;
    BEGIN
@@ -153,4 +253,8 @@ CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS VOID A
 
    END;
 $$ LANGUAGE plpgsql;
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+select uuid_generate_v4();
 
