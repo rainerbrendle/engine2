@@ -5,10 +5,30 @@
 package engine2
 
 import (
-	"engine"
 	"fmt"
 	"testing"
 )
+
+func TestRegister(t *testing.T) {
+
+	var uuid string
+
+	db, err := GetDatabase("rainer")
+
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	uuid, err = db.RegisterLocalNode("test.towerpower.co", "rainer/nodes")
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	fmt.Printf("Register to %v\n", uuid)
+
+}
 
 func TestNewTSN(t *testing.T) {
 
@@ -21,7 +41,7 @@ func TestNewTSN(t *testing.T) {
 		t.FailNow()
 	}
 
-	tsn, err = db.NewTSN2()
+	tsn, err = db.NewNodesTSN()
 	if err != nil {
 		fmt.Printf("PANIC %#v\n", err)
 		t.FailNow()

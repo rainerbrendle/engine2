@@ -45,6 +45,17 @@ CREATE TABLE nodes.clockid (
 );
 
 /* 
+ * local clock
+ */
+CREATE OR REPLACE FUNCTION nodes.new_tsn() RETURNS BIGINT AS $$
+   BEGIN
+    
+     RETURN nextval( 'nodes.tsn' );
+
+   END;
+$$ LANGUAGE plpgsql;
+
+/* 
  * Returns the id of the local 'clock'
  *
  * (creates the 'clock, if not existing (boot strap)
@@ -53,17 +64,8 @@ CREATE OR REPLACE FUNCTION nodes.clockid() RETURNS bigint AS $$
    DECLARE 
       _clockid bigint;
    BEGIN
-      LOOP
-	  select clockid from nodes.clockid where clock = 0 into _clockid;
-	  IF NOT FOUND THEN
-/* to be improved: every instance must be different */
-	       INSERT INTO nodes.clockid( clock, clockid ) 
-		  VALUES ( 0, nextval( 'nodes.tsn' ) );
-	  ELSE
-	       RETURN _clockid;
-	  END IF;
-      END LOOP;
-
+      select clockid from nodes.clockid where clock = 0 into _clockid;
+      RETURN _clockid;
    END
 $$ LANGUAGE plpgsql;
 
@@ -72,23 +74,42 @@ $$ LANGUAGE plpgsql;
  */
 CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS UUID  AS $$
    DECLARE
-      _uuid uuid;
+      _uuid    uuid;
+      _clockid bigint;
+      old_data text;
    BEGIN
-     _uuid := uuid_generate_v4();
+     SELECT clockid, nodeid FROM nodes.clockid WHERE clock = 0 INTO _clockid, _uuid;
+     IF NOT FOUND THEN
 
-     INSERT INTO nodes.clockid( clock, nodeid, clockid )
+            _uuid := uuid_generate_v4();
+
+            INSERT INTO nodes.clockid( clock, nodeid, clockid )
                   VALUES ( 0, _uuid, nextval( 'nodes.tsn' ) );
 
-     insert into nodes.systems( nodeid, url, data, clockid, tsn  )
-     values ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
+            INSERT INTO nodes.systems( nodeid, url, data, clockid, tsn  )
+              VALUES ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
 
+     ELSE
+            SELECT DATA FROM nodes.systems WHERE url = _url INTO old_data;
+            IF NOT FOUND THEN
+               INSERT INTO nodes.systems( nodeid, url, data, clockid, tsn  )
+                 VALUES ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
+            ELSE
+               IF old_data <> _data THEN
+                  UPDATE nodes.systems 
+                     SET data = _data, tsn = nextval( 'nodes.tsn' )
+                   WHERE url = _url;
+               END IF;
+            END IF;
+     END IF;
 
      RETURN _uuid;
+
    END
 $$ LANGUAGE plpgsql;
 
 /*
- * High-water mark vecor of all known nodes
+ * High-water mark vector of all known nodes
  */
 CREATE TABLE nodes.highwatermarks (
      nodeid     uuid  primary key,
