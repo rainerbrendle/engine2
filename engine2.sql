@@ -58,7 +58,6 @@ $$ LANGUAGE plpgsql;
 /* 
  * Returns the id of the local 'clock'
  *
- * (creates the 'clock, if not existing (boot strap)
  */
 CREATE OR REPLACE FUNCTION nodes.clockid() RETURNS bigint AS $$
    DECLARE 
@@ -78,9 +77,11 @@ CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS UUID  
       _clockid bigint;
       old_data text;
    BEGIN
+     /* do we have a clock already */
      SELECT clockid, nodeid FROM nodes.clockid WHERE clock = 0 INTO _clockid, _uuid;
      IF NOT FOUND THEN
 
+            /* no: initialize it */
             _uuid := uuid_generate_v4();
 
             INSERT INTO nodes.clockid( clock, nodeid, clockid )
@@ -90,12 +91,15 @@ CREATE OR REPLACE FUNCTION nodes.register( _url text, _data text) RETURNS UUID  
               VALUES ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
 
      ELSE
+            /* is it partially set up? */
             SELECT DATA FROM nodes.systems WHERE url = _url INTO old_data;
             IF NOT FOUND THEN
+               /* no: set up */
                INSERT INTO nodes.systems( nodeid, url, data, clockid, tsn  )
                  VALUES ( _uuid, _url, _data, nodes.clockid(), nextval( 'nodes.tsn' ) );
             ELSE
                IF old_data <> _data THEN
+                  /* re-register and update with new tsn */
                   UPDATE nodes.systems 
                      SET data = _data, tsn = nextval( 'nodes.tsn' )
                    WHERE url = _url;

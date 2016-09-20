@@ -18,6 +18,39 @@ import (
 	//	"sync"
 )
 
+type HighWaterMark struct {
+	nodeid  string
+	clockid int64
+	tsn     int64
+}
+
+type HighWaterMarks []HighWaterMark
+
+/* read sql Rows into HighWaterMarks structure
+ *
+ * the assumed position in the rows is
+ * $1  nodeid
+ * $2  cockid
+ * $3  tsn
+ */
+func rowsToHighWaterMarks(rows sql.Rows) HighWaterMarks {
+	var (
+		hwm  HighWaterMark
+		hwms HighWaterMarks
+		err  error
+	)
+
+	for rows.Next() {
+		err = rows.Scan(&hwm.nodeid, &hwm.clockid, &hwm.tsn)
+		checkErr("scan high water mark", err)
+	}
+	err = rows.Err()
+	checkErr("end loop", err)
+	/**/
+
+	return hwms
+}
+
 /*
 // helper function for error handling (go panic!)
 func checkErr(trace string, err error) {
@@ -67,6 +100,18 @@ func registerLocalNode(dbconnect *sql.DB, in_url string, in_data string) string 
 	checkErr("nodes.register", err)
 
 	return out_id
+}
+
+func getRemoteHighs(dbconnect *sql.DB) HighWaterMarks {
+	var hwms HighWaterMarks
+
+	rows, err := dbconnect.Query("select nodes.getRemoteHighs()")
+	defer rows.Close()
+
+	checkErr("getRemoteHighs", err)
+	// etab = EngineTable.FromRows( rows )`
+
+	return hwms
 }
 
 //
