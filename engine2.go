@@ -10,7 +10,7 @@ package engine2
 import (
 	"database/sql"
 	"errors"
-	//"fmt"
+	"fmt"
 	_ "github.com/lib/pq"
 	//"log"
 	//	"os"
@@ -26,6 +26,27 @@ type HighWaterMark struct {
 
 type HighWaterMarks []HighWaterMark
 
+// helper function for error handling (go panic!)
+func checkRows(trace string, rows *sql.Rows) {
+
+	cols, err := rows.Columns()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	length := len(cols)
+
+	fmt.Printf("%s ROWS: %v\n", trace, length)
+
+	for i, colName := range cols {
+		// var raw_value = *(values[i].(*interface{}))
+		// var raw_type = reflect.TypeOf(raw_value)
+
+		// fmt.Println(colName,raw_type,raw_value)
+		fmt.Printf("%v %v\n", i, colName)
+	}
+}
+
 /* read sql Rows into HighWaterMarks structure
  *
  * the assumed position in the rows is
@@ -33,22 +54,24 @@ type HighWaterMarks []HighWaterMark
  * $2  cockid
  * $3  tsn
  */
-func rowsToHighWaterMarks(rows sql.Rows) HighWaterMarks {
+func rowsToHighWaterMarks(rows *sql.Rows) HighWaterMarks {
 	var (
-		hwm  HighWaterMark
-		hwms HighWaterMarks
-		err  error
+		hwm    HighWaterMark
+		result []HighWaterMark
+		err    error
 	)
 
-	for rows.Next() {
-		err = rows.Scan(&hwm.nodeid, &hwm.clockid, &hwm.tsn)
+	checkRows("HighWaterMarks", rows)
+	for i := 0; rows.Next(); i++ {
+		err := rows.Scan(&hwm.nodeid, &hwm.clockid, &hwm.tsn)
 		checkErr("scan high water mark", err)
+
+		result = append(result, hwm)
 	}
 	err = rows.Err()
 	checkErr("end loop", err)
-	/**/
 
-	return hwms
+	return result
 }
 
 /*
@@ -103,15 +126,14 @@ func registerLocalNode(dbconnect *sql.DB, in_url string, in_data string) string 
 }
 
 func getRemoteHighs(dbconnect *sql.DB) HighWaterMarks {
-	var hwms HighWaterMarks
 
-	rows, err := dbconnect.Query("select nodes.getRemoteHighs()")
+	/* select * from stored functions returns 'structure' */
+	rows, err := dbconnect.Query("select * from nodes.getRemoteHighs()")
 	defer rows.Close()
 
 	checkErr("getRemoteHighs", err)
-	// etab = EngineTable.FromRows( rows )`
 
-	return hwms
+	return rowsToHighWaterMarks(rows)
 }
 
 //
@@ -145,7 +167,7 @@ func (db *Database) RegisterLocalNode(in_url string, in_data string) (out_value 
 
 		if r := recover(); r != nil {
 			// recover from panic
-			err = errors.New("error while getting power data")
+			err = errors.New("error while register node")
 
 		}
 
@@ -154,6 +176,22 @@ func (db *Database) RegisterLocalNode(in_url string, in_data string) (out_value 
 	out_value = registerLocalNode(db.dbconnect, in_url, in_data)
 
 	return out_value, err
+}
+
+func (db *Database) GetRemoteHighs() (hwms HighWaterMarks, err error) {
+
+	defer func() {
+
+		if r := recover(); r != nil {
+			// recover from panic
+			err = errors.New("error while getting remote high water marks")
+
+		}
+
+	}()
+
+	hwms = getRemoteHighs(db.dbconnect)
+	return hwms, err
 }
 
 /*

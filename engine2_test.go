@@ -50,3 +50,23 @@ func TestNewTSN(t *testing.T) {
 	fmt.Printf("1 x NEW TSN from engine2 %v\n", tsn)
 
 }
+
+func TestGetRemoteHighs(t *testing.T) {
+	var hwms HighWaterMarks
+
+	db, err := GetDatabase("rainer")
+
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	hwms, err = db.GetRemoteHighs()
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	fmt.Printf("GetRemoteHighs Len %v Cap %v\n%v\n", len(hwms), cap(hwms), hwms)
+
+}
