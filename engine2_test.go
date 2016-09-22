@@ -13,7 +13,7 @@ func TestRegister(t *testing.T) {
 
 	var uuid string
 
-	db, err := GetDatabase("rainer")
+	db, err := GetDatabase("engine2")
 
 	if err != nil {
 		fmt.Printf("PANIC %#v\n", err)
@@ -34,7 +34,7 @@ func TestNewTSN(t *testing.T) {
 
 	var tsn int64
 
-	db, err := GetDatabase("rainer")
+	db, err := GetDatabase("engine2")
 
 	if err != nil {
 		fmt.Printf("PANIC %#v\n", err)
@@ -54,7 +54,7 @@ func TestNewTSN(t *testing.T) {
 func TestGetRemoteHighs(t *testing.T) {
 	var hwms HighWaterMarks
 
-	db, err := GetDatabase("rainer")
+	db, err := GetDatabase("engine2")
 
 	if err != nil {
 		fmt.Printf("PANIC %#v\n", err)
@@ -70,3 +70,17 @@ func TestGetRemoteHighs(t *testing.T) {
 	fmt.Printf("GetRemoteHighs Len %v Cap %v\n%v\n", len(hwms), cap(hwms), hwms)
 
 }
+
+/*
+func TestCheckHigh(t *testing.T) {
+	var high int64
+
+	db, err := GetDatabase("engine2")
+
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+}
+*/

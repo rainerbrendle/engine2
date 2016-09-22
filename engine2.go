@@ -136,6 +136,21 @@ func getRemoteHighs(dbconnect *sql.DB) HighWaterMarks {
 	return rowsToHighWaterMarks(rows)
 }
 
+// Register node
+func checkHigh(dbconnect *sql.DB, in_clockid int64, in_tsn int64) int64 {
+
+	var out_tsn int64
+
+	row := dbconnect.QueryRow("select nodes.checkHigh( $1, $2 )", in_clockid, in_tsn)
+	checkRow(row)
+
+	err := row.Scan(&out_tsn)
+
+	checkErr("nodes.checkHigh", err)
+
+	return out_tsn
+}
+
 //
 // PACKAGE EXPORTS
 
@@ -178,6 +193,9 @@ func (db *Database) RegisterLocalNode(in_url string, in_data string) (out_value 
 	return out_value, err
 }
 
+// Read received HighWaterMarks for remote nodes
+//
+// Package Export
 func (db *Database) GetRemoteHighs() (hwms HighWaterMarks, err error) {
 
 	defer func() {
@@ -194,71 +212,20 @@ func (db *Database) GetRemoteHighs() (hwms HighWaterMarks, err error) {
 	return hwms, err
 }
 
-/*
-// Put a new value
-func putPowerData(dbconnect *sql.DB, in_key string, in_value string) {
-
-	_, err := dbconnect.Exec("select power.put( $1, $2 )", in_key, in_value)
-
-	checkErr("power.put", err)
-
-	return
-}
-
-// get a value
-func getPowerData(dbconnect *sql.DB, in_key string) string {
-
-	var out_value string
-
-	row := dbconnect.QueryRow("select power.get( $1 )", in_key)
-	checkRow(row)
-
-	err := row.Scan(&out_value)
-	checkErr("getPowerData", err)
-
-	return out_value
-}
-
-//
-// PACKAGE EXPORTS
-
-
-// Put power.data
+// Check HighWater mark on remote node (with cutoff value)
 //
 // Package Export
-func (db *Database) PutPowerData(in_key string, in_value string) (err error) {
+func (db *Database) CheckHigh(in_clockid int64, in_tsn int64) (out_tsn int64, err error) {
 
 	defer func() {
 
 		if r := recover(); r != nil {
 			// recover from panic
-			err = errors.New("error while inserting power data")
+			err = errors.New("error while getting remote high water marks")
 
 		}
 
 	}()
-
-	putPowerData(db.dbconnect, in_key, in_value)
+	out_tsn = checkHigh(db.dbconnect, in_clockid, in_tsn)
 	return
 }
-
-// Get Power.data
-//
-// Package Export
-func (db *Database) GetPowerData(in_key string) (out_value string, err error) {
-
-	defer func() {
-
-		if r := recover(); r != nil {
-			// recover from panic
-			err = errors.New("error while getting power data")
-
-		}
-
-	}()
-
-	out_value = getPowerData(db.dbconnect, in_key)
-
-	return out_value, err
-}
-*/
