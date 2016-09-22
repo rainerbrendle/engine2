@@ -71,9 +71,10 @@ func TestGetRemoteHighs(t *testing.T) {
 
 }
 
-/*
 func TestCheckHigh(t *testing.T) {
 	var high int64
+
+	clockid := int64(19)
 
 	db, err := GetDatabase("engine2")
 
@@ -82,5 +83,21 @@ func TestCheckHigh(t *testing.T) {
 		t.FailNow()
 	}
 
+	high, err = db.CheckHigh(clockid)
+
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	fmt.Printf("TestCheckHigh %v:  %v\n", clockid, high)
+
+	high, err = db.CheckHigh(clockid)
+
+	if err != nil {
+		fmt.Printf("PANIC %#v\n", err)
+		t.FailNow()
+	}
+
+	fmt.Printf("TestCheckHigh %v : %v\n", clockid, high)
 }
-*/

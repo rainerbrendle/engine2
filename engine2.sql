@@ -165,14 +165,14 @@ CREATE OR REPLACE FUNCTION nodes.putRemoteHigh( _nodeid uuid, _clockid bigint, _
    END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION nodes.checkHigh( _clockid bigint, old_tsn bigint ) RETURNS  bigint AS $$
+CREATE OR REPLACE FUNCTION nodes.checkHigh( _clockid bigint ) RETURNS  bigint AS $$
    DECLARE 
       new_tsn bigint;
    BEGIN
-      SELECT tsn from nodes.highwatermarks where clockid = _clockid and tsn > old_tsn
+      SELECT tsn from nodes.highwatermarks where clockid = _clockid
         INTO new_tsn;
 
-      RETURN new_tsn;
+        RETURN new_tsn;
    END
 $$ LANGUAGE plpgsql;
 

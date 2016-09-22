@@ -136,12 +136,12 @@ func getRemoteHighs(dbconnect *sql.DB) HighWaterMarks {
 	return rowsToHighWaterMarks(rows)
 }
 
-// Register node
-func checkHigh(dbconnect *sql.DB, in_clockid int64, in_tsn int64) int64 {
+// Check high water mark for clock
+func checkHigh(dbconnect *sql.DB, in_clockid int64) int64 {
 
 	var out_tsn int64
 
-	row := dbconnect.QueryRow("select nodes.checkHigh( $1, $2 )", in_clockid, in_tsn)
+	row := dbconnect.QueryRow("select nodes.checkHigh( $1 )", in_clockid)
 	checkRow(row)
 
 	err := row.Scan(&out_tsn)
@@ -215,7 +215,7 @@ func (db *Database) GetRemoteHighs() (hwms HighWaterMarks, err error) {
 // Check HighWater mark on remote node (with cutoff value)
 //
 // Package Export
-func (db *Database) CheckHigh(in_clockid int64, in_tsn int64) (out_tsn int64, err error) {
+func (db *Database) CheckHigh(in_clockid int64) (out_tsn int64, err error) {
 
 	defer func() {
 
@@ -226,6 +226,6 @@ func (db *Database) CheckHigh(in_clockid int64, in_tsn int64) (out_tsn int64, er
 		}
 
 	}()
-	out_tsn = checkHigh(db.dbconnect, in_clockid, in_tsn)
+	out_tsn = checkHigh(db.dbconnect, in_clockid)
 	return
 }
